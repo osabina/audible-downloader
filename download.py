@@ -26,22 +26,34 @@ from selenium.webdriver.support.ui import Select
 
 def login_audible(driver, options, username, password, base_url, lang):
     # Step 1
-    if '@' in username: # Amazon login using email address
+    if '@' in username:  # Amazon login using email address
         login_url = "https://www.amazon.com/ap/signin?"
     else:
-        login_url = "https://www.audible.com/sign-in/ref=ap_to_private?forcePrivateSignIn=true&rdPath=https%3A%2F%2Fwww.audible.com%2F%3F" # Audible member login using username (untested!)
-    if lang != "us": # something more clever might be needed
+        login_url = "https://www.audible.com/sign-in/ref=ap_to_private?forcePrivateSignIn=true&rdPath=https%3A%2F%2Fwww.audible.com%2F%3F"  # Audible member login using username (untested!)
+    if lang != "us":  # something more clever might be needed
         login_url = login_url.replace('.com', "." + lang)
         base_url = base_url.replace('.com', "." + lang)
-    player_id = base64.encodestring(hashlib.sha1("").digest()).rstrip() # keep this same to avoid hogging activation slots
+    player_id = base64.encodestring(hashlib.sha1("").digest()).rstrip(
+    )  # keep this same to avoid hogging activation slots
     if options.player_id:
         player_id = base64.encodestring(binascii.unhexlify(options.player_id)).rstrip()
     logging.debug("[*] Player ID is %s" % player_id)
-    payload = {'openid.ns':'http://specs.openid.net/auth/2.0', 'openid.identity':'http://specs.openid.net/auth/2.0/identifier_select', 
-        'openid.claimed_id':'http://specs.openid.net/auth/2.0/identifier_select', 
-        'openid.mode':'logout', 
-        'openid.assoc_handle':'amzn_audible_' + lang, 
-        'openid.return_to':base_url + 'player-auth-token?playerType=software&playerId=%s=&bp_ua=y&playerModel=Desktop&playerManufacturer=Audible' % (player_id)}
+    payload = {
+        'openid.ns':
+        'http://specs.openid.net/auth/2.0',
+        'openid.identity':
+        'http://specs.openid.net/auth/2.0/identifier_select',
+        'openid.claimed_id':
+        'http://specs.openid.net/auth/2.0/identifier_select',
+        'openid.mode':
+        'logout',
+        'openid.assoc_handle':
+        'amzn_audible_' + lang,
+        'openid.return_to':
+        base_url +
+        'player-auth-token?playerType=software&playerId=%s=&bp_ua=y&playerModel=Desktop&playerManufacturer=Audible'
+        % (player_id)
+    }
     query_string = urlencode(payload)
     url = login_url + query_string
     logging.info("Opening Audible for language %s" % (lang))
@@ -52,46 +64,56 @@ def login_audible(driver, options, username, password, base_url, lang):
     search_box.send_keys(username)
     search_box = driver.find_element_by_id('ap_password')
     search_box.send_keys(password)
-    if os.getenv("DEBUG") or options.debug: # enable if you hit CAPTCHA or 2FA or other "security" screens
-        logging.warning("[!] Running in DEBUG mode. You will need to login in a semi-automatic way, wait for the login screen to show up ;)")
+    if os.getenv(
+        "DEBUG"
+    ) or options.debug:  # enable if you hit CAPTCHA or 2FA or other "security" screens
+        logging.warning(
+            "[!] Running in DEBUG mode. You will need to login in a semi-automatic way, wait for the login screen to show up ;)"
+        )
         time.sleep(32)
     else:
         search_box.submit()
 
+
 def configure_browser(options):
     logging.info("Configuring browser")
 
-    
     opts = webdriver.ChromeOptions()
-    
+
     # Chrome user agent will download files for us
     #opts.add_argument("user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/53.0.2785.116 Safari/537.36")
-    
+
     # This user agent will give us files w. download info
-    opts.add_argument("user-agent=Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; AS; rv:11.0) like Gecko")
+    opts.add_argument(
+        "user-agent=Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; AS; rv:11.0) like Gecko"
+    )
     #opts.add_argument("user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36")
     chromePrefs = {
-        "profile.default_content_settings.popups":"0", 
-        "download.default_directory":options.dw_dir}
+        "profile.default_content_settings.popups": "0",
+        "download.default_directory": options.dw_dir
+    }
     opts.add_experimental_option("prefs", chromePrefs)
-    
+
     if sys.platform == 'win32':
         chromedriver_path = "chromedriver.exe"
     else:
         chromedriver_path = "./chromedriver"
-    
+
     logging.info("Starting browser")
-    
-    driver = webdriver.Chrome(chrome_options=opts,
-                              executable_path=chromedriver_path)
-    
+
+    driver = webdriver.Chrome(chrome_options=opts, executable_path=chromedriver_path)
+
     return driver
 
-class HeadRequest(urllib2.Request):        
+
+class HeadRequest(urllib2.Request):
+
     def get_method(self):
         return "HEAD"
 
-class LyingFancyURLopener(FancyURLopener):        
+
+class LyingFancyURLopener(FancyURLopener):
+
     def __init__(self):
         self.version = 'Audible ADM 6.6.0.19;Windows Vista Service Pack 1 Build 7601'
         FancyURLopener.__init__(self)
@@ -101,32 +123,40 @@ def wait_for_download_or_die(datafile):
     retry = 0
     dw_sleep = 5
     while retry < 5 and not os.path.isfile(datafile):
-        logging.info("%s not downloaded yet, sleeping %s seconds (retry #%s)" % (datafile, dw_sleep, retry))
+        logging.info(
+            "%s not downloaded yet, sleeping %s seconds (retry #%s)" % (datafile, dw_sleep, retry)
+        )
         retry = retry + 1
         time.sleep(dw_sleep)
     if not os.path.isfile(datafile):
-        logging.critical("Chrome used more than %s seconds to download %s, something is wrong, exiting" % (dw_sleep*retry, datafile))
+        logging.critical(
+            "Chrome used more than %s seconds to download %s, something is wrong, exiting" %
+            (dw_sleep * retry, datafile)
+        )
         sys.exit(1)
 
-def print_progress(block_count, block_size, total_size):
-    #The hook will be passed three arguments; 
-    #    a count of blocks transferred so far, 
-    #    a block size in bytes, 
-    #    and the total size of the file. (may be -1, ignored) 
 
-    prev_bytes_complete = (block_count-1)*block_size
-    prev_percent = float(prev_bytes_complete)/float(total_size) * 100.0
+def print_progress(block_count, block_size, total_size):
+    #The hook will be passed three arguments;
+    #    a count of blocks transferred so far,
+    #    a block size in bytes,
+    #    and the total size of the file. (may be -1, ignored)
+
+    prev_bytes_complete = (block_count - 1) * block_size
+    prev_percent = float(prev_bytes_complete) / float(total_size) * 100.0
     prev_progress = "%.0f" % prev_percent
-    
-    bytes_complete = block_count*block_size
-    percent = float(bytes_complete)/float(total_size) * 100.0
+
+    bytes_complete = block_count * block_size
+    percent = float(bytes_complete) / float(total_size) * 100.0
     progress = "%.0f" % percent
 
-    if (progress != prev_progress) and (block_count == 0 or int(progress) % 5 == 0 or int(progress) >= 100):
+    if (progress !=
+        prev_progress) and (block_count == 0 or int(progress) % 5 == 0 or int(progress) >= 100):
         logging.info("Download: %s%% (%s of %s bytes)" % \
-                 (progress, 
-                  bytes_complete, 
+                 (progress,
+                  bytes_complete,
                   total_size))
+
 
 def download_file(datafile, scraped_title, book, page, maxpage):
     with open(datafile) as f:
@@ -142,7 +172,7 @@ def download_file(datafile, scraped_title, book, page, maxpage):
     url = dw_options["assemble_url"][0]
 
     params = {}
-    for param in ["user_id","product_id","codec", "awtype","cust_id"]:
+    for param in ["user_id", "product_id", "codec", "awtype", "cust_id"]:
         if dw_options[param][0] == "LC_64_22050_stereo":
             params[param] = "LC_64_22050_ster"
         else:
@@ -159,7 +189,9 @@ def download_file(datafile, scraped_title, book, page, maxpage):
 
     logging.info("Downloading file data")
     request_head = HeadRequest(url)
-    request_head.add_header('User-Agent', 'Audible ADM 6.6.0.19;Windows Vista Service Pack 1 Build 7601')
+    request_head.add_header(
+        'User-Agent', 'Audible ADM 6.6.0.19;Windows Vista Service Pack 1 Build 7601'
+    )
     #request_head.add_header('User-Agent', "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36")
 
     tries = 0
@@ -169,21 +201,21 @@ def download_file(datafile, scraped_title, book, page, maxpage):
             head = urllib2.urlopen(request_head)
             head_ok = True
         except urllib2.HTTPError as e_head:
-            if tries < 5: 
+            if tries < 5:
                 tries = tries + 1
                 time.sleep(60)
             else:
                 raise e_head
         except socket.error as se:
-            if tries < 5: 
+            if tries < 5:
                 tries = tries + 1
                 time.sleep(60)
             else:
                 raise e_head
 
-    val, par = cgi.parse_header(head.info().dict['content-disposition']) 
+    val, par = cgi.parse_header(head.info().dict['content-disposition'])
     filename = par['filename'].split("_")[0]
-    filename = filename + "." +  par['filename'].split(".")[-1]
+    filename = filename + "." + par['filename'].split(".")[-1]
     size = head.info().dict['content-length']
 
     logging.info("Filename: %s" % filename)
@@ -197,7 +229,7 @@ def download_file(datafile, scraped_title, book, page, maxpage):
         logging.info("File %s exist, checking size", path)
         if int(size) == os.path.getsize(path):
             logging.info("File %s has correct size, not downloading" % (path,))
-            time.sleep(60) # sleep a minute to not be throttled
+            time.sleep(60)  # sleep a minute to not be throttled
             return False
         else:
             logging.warning("File %s had unexpected size, downloading" % (path,))
@@ -205,23 +237,23 @@ def download_file(datafile, scraped_title, book, page, maxpage):
         logging.info("File %s does not exist, downloading" % (path,))
 
     if True:
-        opener = LyingFancyURLopener() 
+        opener = LyingFancyURLopener()
         local_filename, headers = opener.retrieve(url, path, reporthook=print_progress)
         #local_filename, headers = urlretrieve(url, path, reporthook=print_progress)
-        
+
         #import pdb; pdb.set_trace()
-        
+
         #filename = ""
         #try:
-        #    val, par = cgi.parse_header(headers.dict['content-disposition']) 
+        #    val, par = cgi.parse_header(headers.dict['content-disposition'])
         #    filename = par['filename'].split("_")[0]
         #    filename = filename + "." +  par['filename'].split(".")[-1]
-        #except KeyError: 
+        #except KeyError:
         #    import pdb; pdb.set_trace()
-        
+
         #logging.info("Filename: %s" % filename)
         #logging.info("Size: %s" % size)
-        
+
         #path = "%s%s" % (options.dw_dir, filename)
         #os.rename(local_filename,path)
         logging.info("Completed download of '%s' to %s" % (title, path))
@@ -229,17 +261,24 @@ def download_file(datafile, scraped_title, book, page, maxpage):
         logging.info("Completed download of '%s' to %s (not really)" % (title, path))
     return True
 
+
 def wait_for_file_delete(datafile):
     os.remove(datafile)
     retry = 0
     dw_sleep = 2
     while retry < 5 and os.path.isfile(datafile):
-        logging.info("%s not deleted, sleeping %s seconds (retry #%s)" % (datafile, dw_sleep, retry))
+        logging.info(
+            "%s not deleted, sleeping %s seconds (retry #%s)" % (datafile, dw_sleep, retry)
+        )
         retry = retry + 1
         time.sleep(dw_sleep)
     if os.path.isfile(datafile):
-        logging.critical("OS used more than %s seconds to delete %s, something is wrong, exiting" % (datafile,dw_sleep*retry,))
+        logging.critical(
+            "OS used more than %s seconds to delete %s, something is wrong, exiting" %
+            (datafile, dw_sleep * retry,)
+        )
         sys.exit(1)
+
 
 def download_files_on_page(driver, page, maxpage, resume_at, debug):
     books_downloaded = 0
@@ -259,23 +298,25 @@ def download_files_on_page(driver, page, maxpage, resume_at, debug):
                         #    print("Author (%s): '%s'" % (c, author_.text.strip()))
                         for download_a in tr.find_elements_by_class_name("adbl-download-it"):
                             #print("Download-title (%s): %s" % (c, download_a.get_attribute("title").strip()))
-                                logging.info("Clicking download link for %s" % (title))
-                                try:
-                                    download_a.click()
-                                    logging.info("Waiting for Chrome to complete download of datafile")
-                                    time.sleep(1)
-                                    datafile = "%s%s" % (options.dw_dir, "admhelper")
-                                    wait_for_download_or_die(datafile)
-                                    logging.info("Datafile downloaded")
-                                    books_downloaded = books_downloaded + 1
-                                    download_file(datafile, title, books_downloaded, page, maxpage)
-                                    wait_for_file_delete(datafile)
-                                    time.sleep(1)
-                                except ElementNotVisibleException as e:
-                                    logging.exception("Download button Not Visible!")
+                            logging.info("Clicking download link for %s" % (title))
+                            try:
+                                download_a.click()
+                                logging.info("Waiting for Chrome to complete download of datafile")
+                                time.sleep(1)
+                                datafile = "%s%s" % (options.dw_dir, "admhelper")
+                                wait_for_download_or_die(datafile)
+                                logging.info("Datafile downloaded")
+                                books_downloaded = books_downloaded + 1
+                                download_file(datafile, title, books_downloaded, page, maxpage)
+                                wait_for_file_delete(datafile)
+                                time.sleep(1)
+                            except ElementNotVisibleException as e:
+                                logging.exception("Download button Not Visible!")
                     else:
                         books_downloaded = books_downloaded + 1
-                        logging.info("Skipping book '%s', looking for match with '%s'", title, resume_at)
+                        logging.info(
+                            "Skipping book '%s', looking for match with '%s'", title, resume_at
+                        )
                         time.sleep(1)
                 else:
                     books_downloaded = books_downloaded + 1
@@ -286,6 +327,7 @@ def download_files_on_page(driver, page, maxpage, resume_at, debug):
         #logging.info("looping through all tdTitle in spesific TR complete")
     logging.info("Downloaded %s books from this page" % (books_downloaded,))
     return (books_downloaded, resume_at)
+
 
 def configure_audible_library(driver, lang):
     logging.info("Opening Audible library")
@@ -308,7 +350,10 @@ def configure_audible_library(driver, lang):
         if 'ENHANCED' == s.all_selected_options[0].get_attribute("value").strip():
             logging.info("Selected format was ENHANCED, continuing")
         else:
-            logging.info("Format was '%s', selecting 'ENHANCED'" % (s.all_selected_options[0].get_attribute("value"),))
+            logging.info(
+                "Format was '%s', selecting 'ENHANCED'" %
+                (s.all_selected_options[0].get_attribute("value"),)
+            )
             for opt in s.options:
                 if "ENHANCED" == opt.get_attribute("value"):
                     opt.click()
@@ -325,6 +370,7 @@ def configure_audible_library(driver, lang):
     else:
         logging.info("Downloads were already sorted by shortest to longest, continuing")
 
+
 def loop_pages(logging, driver, options):
     maxpage = 1
     for link in driver.find_elements_by_class_name("adbl-page-link"):
@@ -337,7 +383,7 @@ def loop_pages(logging, driver, options):
     for pagenumz in range(maxpage):
         pagenum = pagenumz + 1
         if options.skip_to_page and pagenum < options.skip_to_page:
-               logging.info("Skipping page #%s", pagenum)
+            logging.info("Skipping page #%s", pagenum)
         else:
             logging.info("Scrolling to bottom of page to force loading of content")
             for _ in range(4):
@@ -346,74 +392,99 @@ def loop_pages(logging, driver, options):
                 time.sleep(2)
 
             logging.info("Downloading books on page %s" % (pagenum,))
-            (books_downloaded, resume_at) = books_downloaded + download_files_on_page(driver, pagenum, maxpage, resume_at, debug=False)
+            (books_downloaded, resume_at) = books_downloaded + download_files_on_page(
+                driver, pagenum, maxpage, resume_at, debug=False
+            )
             time.sleep(5)
 
         found_next = False
-        logging.info("Looking for link to next page (page %s)" % (pagenum + 1,) )
+        logging.info("Looking for link to next page (page %s)" % (pagenum + 1,))
         lis = driver.find_elements_by_class_name("adbl-pagination")
         for li in lis:
             ls = li.find_elements_by_class_name("adbl-link")
             for l in ls:
                 #if l.text.strip() == "%s" % ((pagenum + 1),):
-                 if l.text.strip().lower() == "next":
+                if l.text.strip().lower() == "next":
                     logging.info("Clicking link for page NEXT")
                     #logging.info("Clicking link for page %s" % ((pagenum + 1),))
                     found_next = True
                     l.click()
-                    break;
+                    break
             if found_next:
-                break;
+                break
 
     logging.info("Downloaded or skipped a total of %s books" % (books_downloaded,))
 
+
 if __name__ == "__main__":
     parser = OptionParser(usage="Usage: %prog [options]", version="%prog 0.2")
-    parser.add_option("-d", "--debug",
-                      action="store_true",
-                      dest="debug",
-                      default=False,
-                      help="run program in debug mode, enable this for 2FA enabled accounts or for authentication debugging")
-    parser.add_option("-l", "--lang",
-                      action="store",
-                      dest="lang",
-                      default="us",
-                      help="us (default) / de / fr",)
-    parser.add_option("-p",
-                      action="store",
-                      dest="player_id",
-                      default=None,
-                      help="Player ID in hex (optional)",)
-    parser.add_option("-s",
-                      action="store",
-                      dest="skip_to_page",
-                      type=int,
-                      help="Skip to page #, to avoid long wait resuming")
-    parser.add_option("-r",
-                      action="store",
-                      dest="resume_book",
-                      type=str,
-                      help="string contained in book to resume with")
-    parser.add_option("-w",
-                      action="store",
-                      dest="dw_dir",
-                      default="/tmp/audible",
-                      help="Download directory (must exist)",)
-    parser.add_option("--user",
-                      action="store",
-                      dest="username",
-                      default=None,
-                      help="Username (optional, will be asked for if not provied)",)
-    parser.add_option("--password",
-                      action="store",
-                      dest="password",
-                      default=None,
-                      help="Password (optional, will be asked for if not provied)",)
+    parser.add_option(
+        "-d",
+        "--debug",
+        action="store_true",
+        dest="debug",
+        default=False,
+        help=
+        "run program in debug mode, enable this for 2FA enabled accounts or for authentication debugging"
+    )
+    parser.add_option(
+        "-l",
+        "--lang",
+        action="store",
+        dest="lang",
+        default="us",
+        help="us (default) / de / fr",
+    )
+    parser.add_option(
+        "-p",
+        action="store",
+        dest="player_id",
+        default=None,
+        help="Player ID in hex (optional)",
+    )
+    parser.add_option(
+        "-s",
+        action="store",
+        dest="skip_to_page",
+        type=int,
+        help="Skip to page #, to avoid long wait resuming"
+    )
+    parser.add_option(
+        "-r",
+        action="store",
+        dest="resume_book",
+        type=str,
+        help="string contained in book to resume with"
+    )
+    parser.add_option(
+        "-w",
+        action="store",
+        dest="dw_dir",
+        default="/tmp/audible",
+        help="Download directory (must exist)",
+    )
+    parser.add_option(
+        "--user",
+        action="store",
+        dest="username",
+        default=None,
+        help="Username (optional, will be asked for if not provied)",
+    )
+    parser.add_option(
+        "--password",
+        action="store",
+        dest="password",
+        default=None,
+        help="Password (optional, will be asked for if not provied)",
+    )
 
     dt = datetime.datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
 
-    logging.basicConfig(format='%(levelname)s(#%(lineno)d):%(message)s', 
-        level=logging.INFO, filename="./audible-download-%s.log" % (dt))
+    logging.basicConfig(
+        format='%(levelname)s(#%(lineno)d):%(message)s',
+        level=logging.INFO,
+        filename="./audible-download-%s.log" % (dt)
+    )
     logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
     (options, args) = parser.parse_args()
