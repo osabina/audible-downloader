@@ -86,13 +86,17 @@ def configure_browser(options):
     #    "user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
     #    "Chrome/53.0.2785.116 Safari/537.36")
 
-    # This user agent will give us files w. download info
-    web_opts.add_argument(
-        "user-agent=Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; AS; rv:11.0) like Gecko"
-    )
-    #web_opts.add_argument(
-    #    "user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_4) AppleWebKit/537.36 "
-    #    "(KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36")
+    if not options.just_download:
+        # This user agent will give us files w. download info
+        web_opts.add_argument(
+            "user-agent=Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; AS; rv:11.0) like Gecko"
+        )
+    else:
+        # This one will just download
+        web_opts.add_argument(
+            "user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_4) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36"
+        )
     chromePrefs = {
         "profile.default_content_settings.popups": "0",
         "download.default_directory": options.dw_dir
@@ -313,15 +317,25 @@ def download_files_on_page(driver, page, maxpage, resume_at, debug):
                             logging.info("Clicking download link for %s", title)
                             try:
                                 download_a.click()
-                                logging.info("Waiting for Chrome to complete download of datafile")
-                                time.sleep(1)
-                                datafile = "%s%s" % (opts.dw_dir, "admhelper")
-                                wait_for_download_or_die(datafile)
-                                logging.info("Datafile downloaded")
-                                books_downloaded = books_downloaded + 1
-                                download_file(datafile, title, books_downloaded, page, maxpage)
-                                wait_for_file_delete(datafile)
-                                time.sleep(1)
+                                if not opts.just_download:
+                                    logging.info(
+                                        "Waiting for Chrome to complete download of datafile"
+                                    )
+                                    time.sleep(1)
+                                    datafile = "%s%s" % (opts.dw_dir, "admhelper")
+                                    wait_for_download_or_die(datafile)
+                                    logging.info("Datafile downloaded")
+                                    books_downloaded = books_downloaded + 1
+                                    download_file(datafile, title, books_downloaded, page, maxpage)
+                                    wait_for_file_delete(datafile)
+                                    time.sleep(1)
+                                else:
+                                    dl_wait_secs = 60
+                                    logging.info(
+                                        "Waiting %s seconds before looping to next download.",
+                                        dl_wait_secs
+                                    )
+                                    time.sleep(60)
                             except ElementNotVisibleException:
                                 logging.exception("Download button Not Visible!")
                     else:
@@ -438,6 +452,13 @@ if __name__ == "__main__":
         dest="debug",
         default=False,
         help="run program in debug mode, enable for 2FA enabled accounts or for auth debugging"
+    )
+    parser.add_option(
+        "-j",
+        action="store_true",
+        dest="just_download",
+        default=False,
+        help="Just download the files via Chrome click"
     )
     parser.add_option(
         "-l",
