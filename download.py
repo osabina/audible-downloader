@@ -318,7 +318,7 @@ def configure_audible_library(driver, lang):
     else:
         logging.info("Downloads were already sorted by shortest to longest, continuing")
 
-def loop_pages(logging, driver):
+def loop_pages(logging, driver, options):
     maxpage = 1
     for link in driver.find_elements_by_class_name("adbl-page-link"):
         maxpage = max(maxpage, int(link.text))
@@ -328,24 +328,29 @@ def loop_pages(logging, driver):
     logging.info("Found %s pages of books" % maxpage)
     for pagenumz in range(maxpage):
         pagenum = pagenumz + 1
+        if options.skip_to_page and pagenum < options.skip_to_page:
+               logging.info("Skipping page #%s", pagenum)
+        else:
+            logging.info("Scrolling to bottom of page to force loading of content")
+            for _ in range(4):
+                # Page is not loaded before we scroll
+                driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                time.sleep(2)
 
-        logging.info("Scrolling to bottom of page to force loading of content")
-        for x in range(3):
-            # Page is not loaded before we scroll
-            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            time.sleep(2)
+            logging.info("Downloading books on page %s" % (pagenum,))
+            books_downloaded = books_downloaded + download_files_on_page(driver, pagenum, maxpage, resume_at, debug=False)
+            time.sleep(5)
 
-        logging.info("Downloading books on page %s" % (pagenum,))
-        books_downloaded = books_downloaded + download_files_on_page(driver, pagenum, maxpage, debug=False)
-        time.sleep(5)
         found_next = False
         logging.info("Looking for link to next page (page %s)" % (pagenum + 1,) )
         lis = driver.find_elements_by_class_name("adbl-pagination")
         for li in lis:
             ls = li.find_elements_by_class_name("adbl-link")
             for l in ls:
-                if l.text.strip() == "%s" % ((pagenum + 1),):
-                    logging.info("Clicking link for page %s" % ((pagenum + 1),))
+                #if l.text.strip() == "%s" % ((pagenum + 1),):
+                 if l.text.strip().lower() == "next":
+                    logging.info("Clicking link for page NEXT")
+                    #logging.info("Clicking link for page %s" % ((pagenum + 1),))
                     found_next = True
                     l.click()
                     break;
@@ -371,6 +376,11 @@ if __name__ == "__main__":
                       dest="player_id",
                       default=None,
                       help="Player ID in hex (optional)",)
+    parser.add_option("-s",
+                      action="store",
+                      dest="skip_to_page",
+                      type=int,
+                      help="Skip to page #, to avoid long wait resuming")
     parser.add_option("-w",
                       action="store",
                       dest="dw_dir",
@@ -427,7 +437,7 @@ if __name__ == "__main__":
 
     login_audible(driver, options, username, password, base_url, lang)
     configure_audible_library(driver, lang)
-    loop_pages(logging, driver)
+    loop_pages(logging, driver, options)
 
     logging.info("Jobs done!")
     #driver.quit()
