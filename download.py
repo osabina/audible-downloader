@@ -418,9 +418,10 @@ def loop_pages(driver, options):
                 time.sleep(2)
 
             logging.info("Downloading books on page %s", pagenum)
-            (books_downloaded, resume_at) = books_downloaded + download_files_on_page(
+            (new_downloads, resume_at) = download_files_on_page(
                 driver, pagenum, maxpage, resume_at, debug=False
             )
+            books_downloaded += new_downloads
             time.sleep(5)
 
         found_next = False
