@@ -241,7 +241,7 @@ def wait_for_file_delete(datafile):
         logging.critical("OS used more than %s seconds to delete %s, something is wrong, exiting" % (datafile,dw_sleep*retry,))
         sys.exit(1)
 
-def download_files_on_page(driver, page, maxpage, debug):
+def download_files_on_page(driver, page, maxpage, resume_at, debug):
     books_downloaded = 0
 
     trs = driver.find_elements_by_tag_name("tr")
@@ -253,23 +253,30 @@ def download_files_on_page(driver, page, maxpage, debug):
             if title != "":
                 logging.info("Found book: '%s'" % (title,))
                 if not debug:
-                    #for author_ in tr.find_elements_by_class_name("adbl-library-item-author"):
-                    #    print("Author (%s): '%s'" % (c, author_.text.strip()))
-                    for download_a in tr.find_elements_by_class_name("adbl-download-it"):
-                        #print("Download-title (%s): %s" % (c, download_a.get_attribute("title").strip()))
-                            logging.info("Clicking download link for %s" % (title))
-                            download_a.click()
-                            logging.info("Waiting for Chrome to complete download of datafile")
-                            time.sleep(1)
-                            datafile = "%s%s" % (options.dw_dir, "admhelper")
-                            wait_for_download_or_die(datafile)
-
-                            logging.info("Datafile downloaded")
-
-                            books_downloaded = books_downloaded + 1
-                            download_file(datafile, title, books_downloaded, page, maxpage)
-                            wait_for_file_delete(datafile)
-                            time.sleep(1)
+                    if not resume_at or resume_at in title:
+                        resume_at = None
+                        #for author_ in tr.find_elements_by_class_name("adbl-library-item-author"):
+                        #    print("Author (%s): '%s'" % (c, author_.text.strip()))
+                        for download_a in tr.find_elements_by_class_name("adbl-download-it"):
+                            #print("Download-title (%s): %s" % (c, download_a.get_attribute("title").strip()))
+                                logging.info("Clicking download link for %s" % (title))
+                                try:
+                                    download_a.click()
+                                    logging.info("Waiting for Chrome to complete download of datafile")
+                                    time.sleep(1)
+                                    datafile = "%s%s" % (options.dw_dir, "admhelper")
+                                    wait_for_download_or_die(datafile)
+                                    logging.info("Datafile downloaded")
+                                    books_downloaded = books_downloaded + 1
+                                    download_file(datafile, title, books_downloaded, page, maxpage)
+                                    wait_for_file_delete(datafile)
+                                    time.sleep(1)
+                                except ElementNotVisibleException as e:
+                                    logging.exception("Download button Not Visible!")
+                    else:
+                        books_downloaded = books_downloaded + 1
+                        logging.info("Skipping book '%s', looking for match with '%s'", title, resume_at)
+                        time.sleep(1)
                 else:
                     books_downloaded = books_downloaded + 1
                     logging.info("Debug, no download")
@@ -278,7 +285,7 @@ def download_files_on_page(driver, page, maxpage, debug):
                 logging.info("looping through all download in specific TR complete")
         #logging.info("looping through all tdTitle in spesific TR complete")
     logging.info("Downloaded %s books from this page" % (books_downloaded,))
-    return books_downloaded
+    return (books_downloaded, resume_at)
 
 def configure_audible_library(driver, lang):
     logging.info("Opening Audible library")
@@ -324,6 +331,7 @@ def loop_pages(logging, driver, options):
         maxpage = max(maxpage, int(link.text))
 
     books_downloaded = 0
+    resume_at = options.resume_book if options.resume_book else "None"
 
     logging.info("Found %s pages of books" % maxpage)
     for pagenumz in range(maxpage):
@@ -338,7 +346,7 @@ def loop_pages(logging, driver, options):
                 time.sleep(2)
 
             logging.info("Downloading books on page %s" % (pagenum,))
-            books_downloaded = books_downloaded + download_files_on_page(driver, pagenum, maxpage, resume_at, debug=False)
+            (books_downloaded, resume_at) = books_downloaded + download_files_on_page(driver, pagenum, maxpage, resume_at, debug=False)
             time.sleep(5)
 
         found_next = False
@@ -381,6 +389,11 @@ if __name__ == "__main__":
                       dest="skip_to_page",
                       type=int,
                       help="Skip to page #, to avoid long wait resuming")
+    parser.add_option("-r",
+                      action="store",
+                      dest="resume_book",
+                      type=str,
+                      help="string contained in book to resume with")
     parser.add_option("-w",
                       action="store",
                       dest="dw_dir",
