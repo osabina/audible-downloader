@@ -275,7 +275,7 @@ def download_files_on_page(driver, page, maxpage, debug):
                     logging.info("Debug, no download")
                     time.sleep(1)
 
-                logging.info("looping through all download in spesific TR complete")
+                logging.info("looping through all download in specific TR complete")
         #logging.info("looping through all tdTitle in spesific TR complete")
     logging.info("Downloaded %s books from this page" % (books_downloaded,))
     return books_downloaded
