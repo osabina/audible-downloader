@@ -1,25 +1,28 @@
 #!/usr/bin/env python2
 
 from __future__ import print_function
-from getpass import getpass
-from optparse import OptionParser
+
+import base64
+import binascii
+import cgi  # cgi.parse_header
+import datetime
+import hashlib
+import logging
+import os
+import socket
 import sys
 import time
-from selenium import webdriver
-from urllib import urlencode
-from urlparse import urlparse, parse_qs
-import urlparse
-from urllib import urlretrieve, FancyURLopener
 import urllib2
-import hashlib
-import base64
-import os
-import binascii
-import logging
+import urlparse
+from getpass import getpass
+from optparse import OptionParser
+from urllib import FancyURLopener, urlencode, urlretrieve
+from urlparse import parse_qs, urlparse
+
+from selenium import webdriver
+from selenium.common.exceptions import ElementNotVisibleException
 from selenium.webdriver.support.ui import Select
-import cgi # cgi.parse_header
-import datetime
-import socket
+
 
 def login_audible(driver, options, username, password, base_url, lang):
     # Step 1
