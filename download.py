@@ -294,6 +294,62 @@ def wait_for_file_delete(datafile):
         sys.exit(1)
 
 
+def wait_for_download_done(title):
+    ok_punct = [c for c in "-.[]"]
+    file_pre = "".join(x for x in title if x.isalnum() or x in ok_punct)
+    expected_prefixes = [file_pre, "{}{}".format(file_pre, "Unabridged")]
+    dl_fname = None
+    correct_prefix = None
+
+    # Wait for the download to start
+    retries_left = 5
+    while retries_left and not dl_fname:
+        retries_left -= 1
+        files = os.listdir(opts.dw_dir)
+        for fname in files:
+            for prefix in expected_prefixes:
+                if fname.startswith("{}_".format(prefix)):
+                    dl_fname = fname
+                    correct_prefix = prefix
+                    logging.info("File '%s' is downloading...", fname)
+                    break
+
+        if not dl_fname:
+            logging.info("Title '%s' still not downloading, waiting...", title)
+            time.sleep(10)
+
+    if not dl_fname and retries_left <= 0:
+        logging.critical("Title '%s' took too long to start downloading, panicing.", title)
+        sys.exit(1)
+
+    if not dl_fname.endswith("aax.crdownload"):
+        logging.warn("Unexpected file download suffix in progress '%s", dl_fname)
+
+    # Wait for the download to actually finish
+    retries_left = 30
+    while os.path.exists(os.path.join(opts.dw_dir, dl_fname)) and retries_left:
+        retries_left -= 1
+        time.sleep(20)
+        logging.info("File '%s' still downloading, waiting...", dl_fname)
+
+    if retries_left <= 0:
+        logging.critical("'%s' (%s) took too long to download, panicing.", title, dl_fname)
+        sys.exit(1)
+
+    expected_fname = dl_fname[:-len(".crdownload")]
+    corrected_fname = "{}.aax".format(correct_prefix)
+    if os.path.exists(os.path.join(opts.dw_dir, expected_fname)):
+        logging.info(
+            "File '%s' download complete, renaming to '%s'", expected_fname, corrected_fname
+        )
+        os.rename(
+            os.path.join(opts.dw_dir, expected_fname), os.path.join(opts.dw_dir, corrected_fname)
+        )
+    else:
+        logging.critical("Finished download but file '%s' not found, panicing!", expected_fname)
+        sys.exit(1)
+
+
 def download_files_on_page(driver, page, maxpage, resume_at, debug):
     # pylint: disable=too-many-nested-blocks
     books_downloaded = 0
@@ -330,12 +386,8 @@ def download_files_on_page(driver, page, maxpage, resume_at, debug):
                                     wait_for_file_delete(datafile)
                                     time.sleep(1)
                                 else:
-                                    dl_wait_secs = 60
-                                    logging.info(
-                                        "Waiting %s seconds before looping to next download.",
-                                        dl_wait_secs
-                                    )
-                                    time.sleep(60)
+                                    wait_for_download_done(title)
+                                    books_downloaded = books_downloaded + 1
                             except ElementNotVisibleException:
                                 logging.exception("Download button Not Visible!")
                     else:
