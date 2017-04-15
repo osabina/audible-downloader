@@ -16,8 +16,7 @@ import urllib2
 import urlparse
 from getpass import getpass
 from optparse import OptionParser
-from urllib import FancyURLopener, urlencode, urlretrieve
-from urlparse import parse_qs, urlparse
+from urllib import FancyURLopener, urlencode
 
 from selenium import webdriver
 from selenium.common.exceptions import ElementNotVisibleException
@@ -163,7 +162,7 @@ def download_file(datafile, scraped_title, book, page, maxpage):
         logging.info("Parsing %s, creating download url" % datafile)
         lines = f.readlines()
 
-    dw_options = parse_qs(lines[0])
+    dw_options = urlparse.parse_qs(lines[0])
     title = dw_options["title"][0]
     if title != scraped_title:
         logging.info("Found real title: %s" % (title,))
@@ -363,7 +362,7 @@ def configure_audible_library(driver, lang):
         sys.exit(1)
 
     # Comment out this in hope of not hitting download limit as fast
-    if not ('adbl-sort-down' in driver.find_element_by_id("SortByLength").get_attribute("class")):
+    if not 'adbl-sort-down' in driver.find_element_by_id("SortByLength").get_attribute("class"):
         logging.info("Sorting downloads by shortest to longest")
         driver.find_element_by_id("SortByLength").click()
         time.sleep(10)
@@ -398,7 +397,7 @@ def loop_pages(logging, driver, options):
             time.sleep(5)
 
         found_next = False
-        logging.info("Looking for link to next page (page %s)" % (pagenum + 1,))
+        logging.info("Looking for link to next page (page %s)", pagenum + 1)
         lis = driver.find_elements_by_class_name("adbl-pagination")
         for li in lis:
             ls = li.find_elements_by_class_name("adbl-link")
@@ -409,11 +408,12 @@ def loop_pages(logging, driver, options):
                     #logging.info("Clicking link for page %s" % ((pagenum + 1),))
                     found_next = True
                     l.click()
+                    time.sleep(3)
                     break
             if found_next:
                 break
 
-    logging.info("Downloaded or skipped a total of %s books" % (books_downloaded,))
+    logging.info("Downloaded or skipped a total of %s books", books_downloaded)
 
 
 if __name__ == "__main__":
