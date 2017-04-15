@@ -27,8 +27,10 @@ def login_audible(driver, options, username, password, base_url, lang):
     # Step 1
     if '@' in username:  # Amazon login using email address
         login_url = "https://www.amazon.com/ap/signin?"
-    else:
-        login_url = "https://www.audible.com/sign-in/ref=ap_to_private?forcePrivateSignIn=true&rdPath=https%3A%2F%2Fwww.audible.com%2F%3F"  # Audible member login using username (untested!)
+    else:  # Audible member login using username (untested!)
+        login_url = "https://www.audible.com/sign-in/%s" % (
+            "ref=ap_to_private?forcePrivateSignIn=true&rdPath=https%3A%2F%2Fwww.audible.com%2F%3F"
+        )
     if lang != "us":  # something more clever might be needed
         login_url = login_url.replace('.com', "." + lang)
         base_url = base_url.replace('.com', "." + lang)
@@ -36,7 +38,7 @@ def login_audible(driver, options, username, password, base_url, lang):
     )  # keep this same to avoid hogging activation slots
     if options.player_id:
         player_id = base64.encodestring(binascii.unhexlify(options.player_id)).rstrip()
-    logging.debug("[*] Player ID is %s" % player_id)
+    logging.debug("[*] Player ID is %s", player_id)
     payload = {
         'openid.ns':
         'http://specs.openid.net/auth/2.0',
@@ -49,13 +51,13 @@ def login_audible(driver, options, username, password, base_url, lang):
         'openid.assoc_handle':
         'amzn_audible_' + lang,
         'openid.return_to':
-        base_url +
-        'player-auth-token?playerType=software&playerId=%s=&bp_ua=y&playerModel=Desktop&playerManufacturer=Audible'
-        % (player_id)
+        base_url + "player-auth-token" +
+        "?playerType=%s&playerId=%s=&bp_ua=y&playerModel=%s&playerManufacturer=%s" %
+        ("software", player_id, "Desktop", "Audible")
     }
     query_string = urlencode(payload)
     url = login_url + query_string
-    logging.info("Opening Audible for language %s" % (lang))
+    logging.info("Opening Audible for language %s", lang)
     driver.get(base_url + '?ipRedirectOverride=true')
     logging.info("Logging in to Amazon/Audible")
     driver.get(url)
@@ -63,13 +65,13 @@ def login_audible(driver, options, username, password, base_url, lang):
     search_box.send_keys(username)
     search_box = driver.find_element_by_id('ap_password')
     search_box.send_keys(password)
-    if os.getenv(
-        "DEBUG"
-    ) or options.debug:  # enable if you hit CAPTCHA or 2FA or other "security" screens
+    if os.getenv("DEBUG") or options.debug:
+        # enable if you hit CAPTCHA or 2FA or other "security" screens
         logging.warning(
-            "[!] Running in DEBUG mode. You will need to login in a semi-automatic way, wait for the login screen to show up ;)"
+            "[!] Running in DEBUG mode. You will need to login in a semi-automatic way, "
+            "wait for the login screen to show up ;)"
         )
-        time.sleep(32)
+        time.sleep(22)
     else:
         search_box.submit()
 
@@ -77,21 +79,25 @@ def login_audible(driver, options, username, password, base_url, lang):
 def configure_browser(options):
     logging.info("Configuring browser")
 
-    opts = webdriver.ChromeOptions()
+    web_opts = webdriver.ChromeOptions()
 
     # Chrome user agent will download files for us
-    #opts.add_argument("user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/53.0.2785.116 Safari/537.36")
+    #web_opts.add_argument(
+    #    "user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
+    #    "Chrome/53.0.2785.116 Safari/537.36")
 
     # This user agent will give us files w. download info
-    opts.add_argument(
+    web_opts.add_argument(
         "user-agent=Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; AS; rv:11.0) like Gecko"
     )
-    #opts.add_argument("user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36")
+    #web_opts.add_argument(
+    #    "user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_4) AppleWebKit/537.36 "
+    #    "(KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36")
     chromePrefs = {
         "profile.default_content_settings.popups": "0",
         "download.default_directory": options.dw_dir
     }
-    opts.add_experimental_option("prefs", chromePrefs)
+    web_opts.add_experimental_option("prefs", chromePrefs)
 
     if sys.platform == 'win32':
         chromedriver_path = "chromedriver.exe"
@@ -100,7 +106,7 @@ def configure_browser(options):
 
     logging.info("Starting browser")
 
-    driver = webdriver.Chrome(chrome_options=opts, executable_path=chromedriver_path)
+    driver = webdriver.Chrome(chrome_options=web_opts, executable_path=chromedriver_path)
 
     return driver
 
@@ -123,14 +129,14 @@ def wait_for_download_or_die(datafile):
     dw_sleep = 5
     while retry < 5 and not os.path.isfile(datafile):
         logging.info(
-            "%s not downloaded yet, sleeping %s seconds (retry #%s)" % (datafile, dw_sleep, retry)
+            "%s not downloaded yet, sleeping %s seconds (retry #%s)", datafile, dw_sleep, retry
         )
         retry = retry + 1
         time.sleep(dw_sleep)
     if not os.path.isfile(datafile):
         logging.critical(
-            "Chrome used more than %s seconds to download %s, something is wrong, exiting" %
-            (dw_sleep * retry, datafile)
+            "Chrome used more than %s seconds to download %s, something is wrong, exiting",
+            dw_sleep * retry, datafile
         )
         sys.exit(1)
 
@@ -149,24 +155,25 @@ def print_progress(block_count, block_size, total_size):
     percent = float(bytes_complete) / float(total_size) * 100.0
     progress = "%.0f" % percent
 
-    if (progress !=
-        prev_progress) and (block_count == 0 or int(progress) % 5 == 0 or int(progress) >= 100):
-        logging.info("Download: %s%% (%s of %s bytes)" % \
-                 (progress,
-                  bytes_complete,
-                  total_size))
+    if (progress != prev_progress and
+            (block_count == 0 or
+             int(progress) % 5 == 0 or
+             int(progress) >= 100)
+       ):
+        logging.info("Download: %s%% (%s of %s bytes)", progress, bytes_complete, total_size)
 
 
 def download_file(datafile, scraped_title, book, page, maxpage):
+    # pylint: disable=too-many-branches,too-many-statements
     with open(datafile) as f:
-        logging.info("Parsing %s, creating download url" % datafile)
+        logging.info("Parsing %s, creating download url", datafile)
         lines = f.readlines()
 
     dw_options = urlparse.parse_qs(lines[0])
     title = dw_options["title"][0]
     if title != scraped_title:
-        logging.info("Found real title: %s" % (title,))
-    logging.info("Parsed data for book '%s'" % (title,))
+        logging.info("Found real title: %s", title)
+    logging.info("Parsed data for book '%s'", title)
 
     url = dw_options["assemble_url"][0]
 
@@ -184,60 +191,66 @@ def download_file(datafile, scraped_title, book, page, maxpage):
     url_parts[4] = urlencode(query)
 
     url = urlparse.urlunparse(url_parts)
-    logging.info("Book URL: %s" % url)
+    logging.info("Book URL: %s", url)
 
     logging.info("Downloading file data")
     request_head = HeadRequest(url)
     request_head.add_header(
         'User-Agent', 'Audible ADM 6.6.0.19;Windows Vista Service Pack 1 Build 7601'
     )
-    #request_head.add_header('User-Agent', "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36")
+    #request_head.add_header('User-Agent',
+    #   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_4) AppleWebKit/537.36 "
+    #   "(KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36")
 
     tries = 0
     head_ok = False
-    while head_ok == False:
+    while not head_ok:
         try:
             head = urllib2.urlopen(request_head)
             head_ok = True
-        except urllib2.HTTPError as e_head:
+        except urllib2.HTTPError:
             if tries < 5:
+                logging.info("HEAD request failed(HTTP), sleeping and retrying")
                 tries = tries + 1
                 time.sleep(60)
             else:
-                raise e_head
-        except socket.error as se:
+                raise
+        except socket.error:
             if tries < 5:
+                logging.info("HEAD request failed (socket), sleeping and retrying")
                 tries = tries + 1
                 time.sleep(60)
             else:
-                raise e_head
+                raise
 
-    val, par = cgi.parse_header(head.info().dict['content-disposition'])
+    _, par = cgi.parse_header(head.info().dict['content-disposition'])
     filename = par['filename'].split("_")[0]
     filename = filename + "." + par['filename'].split(".")[-1]
     size = head.info().dict['content-length']
 
-    logging.info("Filename: %s" % filename)
-    logging.info("Size: %s" % size)
+    logging.info("Filename: %s", filename)
+    logging.info("Size: %s", size)
 
-    path = "%s%s" % (options.dw_dir, filename)
+    path = "%s%s" % (opts.dw_dir, filename)
 
-    logging.info("Book %s of 20 on page %s of %s" % (book, page, maxpage))
+    logging.info("Book %s of 20 on page %s of %s", book, page, maxpage)
 
     if os.path.isfile(path):
         logging.info("File %s exist, checking size", path)
         if int(size) == os.path.getsize(path):
-            logging.info("File %s has correct size, not downloading" % (path,))
+            logging.info("File %s has correct size, not downloading", path)
             time.sleep(60)  # sleep a minute to not be throttled
             return False
         else:
-            logging.warning("File %s had unexpected size, downloading" % (path,))
+            logging.warning("File %s had unexpected size, downloading", path)
     else:
-        logging.info("File %s does not exist, downloading" % (path,))
+        logging.info("File %s does not exist, downloading", path)
 
-    if True:
+    we_are_really_doing_this = True
+    if we_are_really_doing_this:
         opener = LyingFancyURLopener()
-        local_filename, headers = opener.retrieve(url, path, reporthook=print_progress)
+        opener.retrieve(url, path, reporthook=print_progress)
+        #local_filename, headers = opener.retrieve(url, path, reporthook=print_progress)
         #local_filename, headers = urlretrieve(url, path, reporthook=print_progress)
 
         #import pdb; pdb.set_trace()
@@ -255,9 +268,9 @@ def download_file(datafile, scraped_title, book, page, maxpage):
 
         #path = "%s%s" % (options.dw_dir, filename)
         #os.rename(local_filename,path)
-        logging.info("Completed download of '%s' to %s" % (title, path))
+        logging.info("Completed download of '%s' to %s", title, path)
     else:
-        logging.info("Completed download of '%s' to %s (not really)" % (title, path))
+        logging.info("Completed download of '%s' to %s (not really)", title, path)
     return True
 
 
@@ -266,20 +279,19 @@ def wait_for_file_delete(datafile):
     retry = 0
     dw_sleep = 2
     while retry < 5 and os.path.isfile(datafile):
-        logging.info(
-            "%s not deleted, sleeping %s seconds (retry #%s)" % (datafile, dw_sleep, retry)
-        )
+        logging.info("%s not deleted, sleeping %s seconds (retry #%s)", datafile, dw_sleep, retry)
         retry = retry + 1
         time.sleep(dw_sleep)
     if os.path.isfile(datafile):
         logging.critical(
-            "OS used more than %s seconds to delete %s, something is wrong, exiting" %
-            (datafile, dw_sleep * retry,)
+            "OS used more than %s seconds to delete %s, something is wrong, exiting", datafile,
+            dw_sleep * retry
         )
         sys.exit(1)
 
 
 def download_files_on_page(driver, page, maxpage, resume_at, debug):
+    # pylint: disable=too-many-nested-blocks
     books_downloaded = 0
 
     trs = driver.find_elements_by_tag_name("tr")
@@ -289,27 +301,28 @@ def download_files_on_page(driver, page, maxpage, resume_at, debug):
             #for a in td.find_elements_by_class_name("adbl-prod-title"):
             title = title_a.text.strip()
             if title != "":
-                logging.info("Found book: '%s'" % (title,))
+                logging.info("Found book: '%s'", title)
                 if not debug:
                     if not resume_at or resume_at in title:
                         resume_at = None
                         #for author_ in tr.find_elements_by_class_name("adbl-library-item-author"):
                         #    print("Author (%s): '%s'" % (c, author_.text.strip()))
                         for download_a in tr.find_elements_by_class_name("adbl-download-it"):
-                            #print("Download-title (%s): %s" % (c, download_a.get_attribute("title").strip()))
-                            logging.info("Clicking download link for %s" % (title))
+                            #print("Download-title (%s): %s" %
+                            # (c, download_a.get_attribute("title").strip()))
+                            logging.info("Clicking download link for %s", title)
                             try:
                                 download_a.click()
                                 logging.info("Waiting for Chrome to complete download of datafile")
                                 time.sleep(1)
-                                datafile = "%s%s" % (options.dw_dir, "admhelper")
+                                datafile = "%s%s" % (opts.dw_dir, "admhelper")
                                 wait_for_download_or_die(datafile)
                                 logging.info("Datafile downloaded")
                                 books_downloaded = books_downloaded + 1
                                 download_file(datafile, title, books_downloaded, page, maxpage)
                                 wait_for_file_delete(datafile)
                                 time.sleep(1)
-                            except ElementNotVisibleException as e:
+                            except ElementNotVisibleException:
                                 logging.exception("Download button Not Visible!")
                     else:
                         books_downloaded = books_downloaded + 1
@@ -324,7 +337,7 @@ def download_files_on_page(driver, page, maxpage, resume_at, debug):
 
                 logging.info("looping through all download in specific TR complete")
         #logging.info("looping through all tdTitle in spesific TR complete")
-    logging.info("Downloaded %s books from this page" % (books_downloaded,))
+    logging.info("Downloaded %s books from this page", books_downloaded)
     return (books_downloaded, resume_at)
 
 
@@ -346,15 +359,15 @@ def configure_audible_library(driver, lang):
     # u'ENHANCED' u'MP332' u'ACELP16' u'ACELP85'
     s = Select(driver.find_element_by_id("adbl_select_preferred_format"))
     if len(s.all_selected_options) == 1:
-        if 'ENHANCED' == s.all_selected_options[0].get_attribute("value").strip():
+        if s.all_selected_options[0].get_attribute("value").strip() == "ENHANCED":
             logging.info("Selected format was ENHANCED, continuing")
         else:
             logging.info(
-                "Format was '%s', selecting 'ENHANCED'" %
-                (s.all_selected_options[0].get_attribute("value"),)
+                "Format was '%s', selecting 'ENHANCED'",
+                s.all_selected_options[0].get_attribute("value")
             )
             for opt in s.options:
-                if "ENHANCED" == opt.get_attribute("value"):
+                if opt.get_attribute("value") == "ENHANCED":
                     opt.click()
                     time.sleep(5)
     else:
@@ -370,7 +383,7 @@ def configure_audible_library(driver, lang):
         logging.info("Downloads were already sorted by shortest to longest, continuing")
 
 
-def loop_pages(logging, driver, options):
+def loop_pages(driver, options):
     maxpage = 1
     for link in driver.find_elements_by_class_name("adbl-page-link"):
         maxpage = max(maxpage, int(link.text))
@@ -378,7 +391,7 @@ def loop_pages(logging, driver, options):
     books_downloaded = 0
     resume_at = options.resume_book if options.resume_book else "None"
 
-    logging.info("Found %s pages of books" % maxpage)
+    logging.info("Found %s pages of books", maxpage)
     for pagenumz in range(maxpage):
         pagenum = pagenumz + 1
         if options.skip_to_page and pagenum < options.skip_to_page:
@@ -390,7 +403,7 @@ def loop_pages(logging, driver, options):
                 driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
                 time.sleep(2)
 
-            logging.info("Downloading books on page %s" % (pagenum,))
+            logging.info("Downloading books on page %s", pagenum)
             (books_downloaded, resume_at) = books_downloaded + download_files_on_page(
                 driver, pagenum, maxpage, resume_at, debug=False
             )
@@ -424,8 +437,7 @@ if __name__ == "__main__":
         action="store_true",
         dest="debug",
         default=False,
-        help=
-        "run program in debug mode, enable this for 2FA enabled accounts or for authentication debugging"
+        help="run program in debug mode, enable for 2FA enabled accounts or for auth debugging"
     )
     parser.add_option(
         "-l",
@@ -487,41 +499,36 @@ if __name__ == "__main__":
     )
     logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
-    (options, args) = parser.parse_args()
+    (opts, args) = parser.parse_args()
 
-    if not options.dw_dir.endswith(os.path.sep):
-        options.dw_dir += os.path.sep
+    if not opts.dw_dir.endswith(os.path.sep):
+        opts.dw_dir += os.path.sep
 
-    if not os.path.exists(options.dw_dir):
-        logging.info("download directory doesn't exist, creating " + options.dw_dir)
-        os.makedirs(options.dw_dir)
+    if not os.path.exists(opts.dw_dir):
+        logging.info("download directory doesn't exist, creating " + opts.dw_dir)
+        os.makedirs(opts.dw_dir)
 
-    if not os.access(options.dw_dir, os.W_OK):
-        logging.error("download directory " + options.dw_dir + " not writable")
+    if not os.access(opts.dw_dir, os.W_OK):
+        logging.error("download directory " + opts.dw_dir + " not writable")
         sys.exit(1)
 
-    if not options.username:
-        username = raw_input("Username: ")
-    else:
-        username = options.username
-    if not options.password:
-        password = getpass("Password: ")
-    else:
-        password = options.password
+    if not opts.username:
+        opts.username = raw_input("Username: ")
+    if not opts.password:
+        opts.password = getpass("Password: ")
 
-    base_url = 'https://www.audible.com/'
+    url_base = 'https://www.audible.com/'
     base_url_license = 'https://www.audible.com/'
-    lang = options.lang
 
-    driver = configure_browser(options)
+    webdriver = configure_browser(opts)
     try:
-        wait_for_file_delete("%s%s" % (options.dw_dir, "admhelper"))
+        wait_for_file_delete("%s%s" % (opts.dw_dir, "admhelper"))
     except OSError:
         pass
 
-    login_audible(driver, options, username, password, base_url, lang)
-    configure_audible_library(driver, lang)
-    loop_pages(logging, driver, options)
+    login_audible(webdriver, opts, opts.username, opts.password, url_base, opts.lang)
+    configure_audible_library(webdriver, opts.lang)
+    loop_pages(webdriver, opts)
 
     logging.info("Jobs done!")
     #driver.quit()
