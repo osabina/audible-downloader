@@ -455,7 +455,7 @@ def loop_pages(driver, options):
         maxpage = max(maxpage, int(link.text))
 
     books_downloaded = 0
-    resume_at = options.resume_book if options.resume_book else "None"
+    resume_at = options.resume_book if options.resume_book else None
 
     logging.info("Found %s pages of books", maxpage)
     for pagenumz in range(maxpage):
