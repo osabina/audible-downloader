@@ -302,7 +302,7 @@ def wait_for_download_done(title):
     correct_prefix = None
 
     # Wait for the download to start
-    retries_left = 5
+    retries_left = 10
     while retries_left and not dl_fname:
         retries_left -= 1
         files = os.listdir(opts.dw_dir)
@@ -326,7 +326,7 @@ def wait_for_download_done(title):
         logging.warn("Unexpected file download suffix in progress '%s", dl_fname)
 
     # Wait for the download to actually finish
-    retries_left = 30
+    retries_left = 60
     while os.path.exists(os.path.join(opts.dw_dir, dl_fname)) and retries_left:
         retries_left -= 1
         time.sleep(20)
